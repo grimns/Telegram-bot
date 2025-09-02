@@ -5,7 +5,8 @@ from threading import Thread
 
 # === Настройки ===
 TOKEN = "8145255899:AAFQcd7SZrpvH2GVuLwxASqtg1rYYoeMHu4"
-USDT_ADDRESS = "TDiDg4tsuMdZYs7Afz1EsUR4gkkE5jJb9D"
+USDT_TRC20 = "TDiDg4tsuMdZYs7Afz1EsUR4gkkE5jJb9D"
+USDT_ERC20 = "0xc5fd6eb0a1fd15eb98cb18bf5f57457fea8e50a3"
 TON_ADDRESS = "UQAYWHW0rKhY9MEZ6UR5pn76YUJTZtlb3D1rWYcC7R6f9-EA"
 CRYPTOBOT_LINK = "t.me/send?start=IVmn0QryS4jg"
 CHANNEL_LINK = "https://t.me/+52SBJ_ZOFYg2YTky"
@@ -232,3 +233,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
