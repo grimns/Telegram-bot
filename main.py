@@ -1,24 +1,31 @@
+
+
+import json
+import os
+import logging
+import re
+from threading import Thread
+from flask import Flask
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, LabeledPrice
 from telegram.ext import (Application, CommandHandler, CallbackQueryHandler,
                           ContextTypes, MessageHandler, filters,
                           PreCheckoutQueryHandler)
-from flask import Flask
-from threading import Thread
-import logging
-import re
 
 logging.basicConfig(level=logging.INFO)
 
-# ================== НАСТРОЙКИ ==================
-TOKEN = "8145255899:AAFQcd7SZrpvH2GVuLwxASqtg1rYYoeMHu4"
-ADMIN_ID = 1758979923
+# --------------------- ВСТАВЬ СЮДА СВОИ ДАННЫЕ ---------------------
+TOKEN = "8145255899:AAFQcd7SZrpvH2GVuLwxASqtg1rYYoeMHu4"        # <- Вставь токен строкой
+ADMIN_ID = 1758979923                         # <- Вставь целым числом, например 1758979923
+# --------------------------------------------------------------------
 
+STATES_FILE = "states.json"
 STARS_PROVIDER_TOKEN = "STARS"
 
 MAIN_CHANNEL = "https://t.me/osnvkanal"
 CHANNEL_LINK = "https://t.me/+52SBJ_ZOFYg2YTky"
 VIP_CHANNEL_LINK = "https://t.me/+RW9AYUQMIjo0NjEy"
-DICK_CHANNEL_LINK = "https://t.me/+--5nFyT4jjQyZDEy"  # <-- поменяй на свой, если нужно
+DICK_CHANNEL_LINK = "https://t.me/+--5nFyT4jjQyZDEy"
 
 USDT_TRC20 = "TDiDg4tsuMdZYs7Afz1EsUR4gkkE5jJb9D"
 USDT_ERC20 = "0xc5fd6eb0a1fd15eb98cb18bf5f57457fea8e50a3"
@@ -28,29 +35,59 @@ DONATION_LINK = "https://www.donationalerts.com/r/gromn"
 
 IMAGE_URL = "https://ibb.co/hxbvxM4L"
 
+# In-memory structures (kept in sync with states.json)
 # pending_users: {user_id: { 'state': 'awaiting_screenshot'|'support', 'pack': '<pack>', 'category': 'vip'|'dick'|'normal' }}
 pending_users = {}
 # admin_reply_state: {admin_id: user_id_to_reply}
 admin_reply_state = {}
 
+# -------------------- states.json handling --------------------
+def load_states():
+    global pending_users, admin_reply_state
+    if not os.path.exists(STATES_FILE):
+        pending_users = {}
+        admin_reply_state = {}
+        return
+    try:
+        with open(STATES_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            pending_users = {int(k): v for k, v in data.get("pending_users", {}).items()}
+            admin_reply_state = {int(k): v for k, v in data.get("admin_reply_state", {}).items()}
+    except Exception as e:
+        logging.exception("Не удалось загрузить states.json: %s", e)
+        pending_users = {}
+        admin_reply_state = {}
+
+def save_states():
+    # atomic-ish save: write to tmp then rename
+    try:
+        tmp = STATES_FILE + ".tmp"
+        data = {
+            "pending_users": {str(k): v for k, v in pending_users.items()},
+            "admin_reply_state": {str(k): v for k, v in admin_reply_state.items()}
+        }
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, STATES_FILE)
+    except Exception as e:
+        logging.exception("Не удалось сохранить states.json: %s", e)
+
+# сразу подгружаем состояния при старте
+load_states()
 
 # ================== FLASK keep-alive ==================
 app = Flask('')
-
 
 @app.route('/')
 def home():
     return "Bot is running"
 
-
 def run():
     app.run(host='0.0.0.0', port=3000)
 
-
 def keep_alive():
-    t = Thread(target=run)
+    t = Thread(target=run, daemon=True)
     t.start()
-
 
 # ================== КЛАВИАТУРЫ ==================
 def main_keyboard():
@@ -79,11 +116,9 @@ def main_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-
 def back_keyboard():
     return InlineKeyboardMarkup(
         [[InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
-
 
 def vip_keyboard():
     keyboard = [
@@ -106,7 +141,6 @@ def vip_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-
 def dick_keyboard():
     keyboard = [
         [
@@ -128,7 +162,6 @@ def dick_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-
 # ================== HELPERS ==================
 def _category_from_pack(pack: str) -> str:
     """Определяем категорию по названию пакета."""
@@ -139,7 +172,6 @@ def _category_from_pack(pack: str) -> str:
         return "dick"
     return "normal"
 
-
 # ================== СТАРТ ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_photo(
@@ -148,7 +180,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📢 Наш основной канал: {MAIN_CHANNEL}\n\nВыберите способ оплаты:"
         ),
         reply_markup=main_keyboard())
-
 
 # ================== ОБРАБОТКА КНОПОК ==================
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -170,7 +201,9 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ===== Поддержка (пометка) =====
     if data == "support":
+        # отмечаем пользователя как пишущего в поддержку
         pending_users[user_id] = {"state": "support"}
+        save_states()
         await query.message.reply_text(
             "🛠 Напишите своё сообщение поддержки. Мы перешлём его модератору.")
         return
@@ -186,6 +219,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer("❌ Неверный идентификатор.", show_alert=True)
             return
         admin_reply_state[user_id] = target
+        save_states()
         await query.message.reply_text(f"✍️ Отправь сообщение — оно будет переслано пользователю {target}.")
         return
 
@@ -272,7 +306,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "vip_usdt_erc":
         keyboard = [[
             InlineKeyboardButton("✅ Я оплатил",
-                                 callback_data="paid_vip_usdt_erc")
+                                .callback_data="paid_vip_usdt_erc")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
             f"💵 VIP Оплата USDT ERC20\nСумма: 10$\nАдрес: `{USDT_ERC20}`",
@@ -435,6 +469,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         category = _category_from_pack(pack)
         # state: awaiting_screenshot — ждём скрин от пользователя
         pending_users[user_id] = {"state": "awaiting_screenshot", "pack": pack, "category": category}
+        save_states()
 
         await query.message.reply_text(
             "✅ Нажато: 'Я оплатил'. Пожалуйста, отправьте скрин оплаты — модератор проверит и выдаст ссылку.")
@@ -443,11 +478,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 ADMIN_ID,
                 f"Пользователь @{user.username or user_id} (ID: {user_id}) отметил оплату: {pack}.",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(
-                        f"Выдать ссылку @{user.username or user_id}",
-                        callback_data=f"give_{user_id}")
-                ]])
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"Выдать ссылку @{user.username or user_id}", callback_data=f"give_{user_id}")]])
             )
         except Exception as e:
             logging.exception("Не удалось уведомить админа о пометке оплаты: %s", e)
@@ -478,7 +509,9 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     target_id,
                     f"✅ Оплата подтверждена! Вот ссылка на канал:\n{link}")
                 await query.answer(f"Ссылка отправлена пользователю {target_id}")
+                # удаляем ожидание и сохраняем
                 del pending_users[target_id]
+                save_states()
             except Exception as e:
                 logging.exception("Не удалось отправить ссылку пользователю: %s", e)
                 await query.answer("❌ Не удалось отправить ссылку пользователю.", show_alert=True)
@@ -491,12 +524,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Если попали сюда — неизвестная кнопка (на всякий случай)
     await query.answer()
 
-
 # ================== PreCheckout (Stars) ==================
 async def precheckout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.pre_checkout_query
     await query.answer(ok=True)
-
 
 # ================== Успешная оплата Stars ==================
 async def successful_payment(update: Update,
@@ -516,11 +547,13 @@ async def successful_payment(update: Update,
         # автоматически выдаём ссылку пользователю
         await update.message.reply_text(
             f"✅ Оплата успешна!\nВот ссылка на канал:\n{link}")
-        await context.bot.send_message(
-            ADMIN_ID,
-            f"Пользователь @{update.message.from_user.username or user_id} (ID: {user_id}) оплатил {payload}"
-        )
-
+        try:
+            await context.bot.send_message(
+                ADMIN_ID,
+                f"Пользователь @{update.message.from_user.username or user_id} (ID: {user_id}) оплатил {payload}"
+            )
+        except Exception:
+            pass
 
 # ================== Обработка фото (скриншоты) ==================
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -575,15 +608,18 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logging.exception("Ошибка при отправке поддержки админу: %s", e)
                 await update.message.reply_text("❌ Не удалось отправить сообщение в поддержку. Попробуйте позже.")
             # удаляем состояние поддержки
-            del pending_users[user_id]
+            try:
+                del pending_users[user_id]
+                save_states()
+            except KeyError:
+                pass
             return
 
     # пользователь прислал фото без пометки оплаты/поддержки
     await update.message.reply_text(
-        "❗ Чтобы отправить скрин оплаты, сначала нажмите кнопку '✅ Я оплатил' в меню нужного пакета.\n" 
+        "❗ Чтобы отправить скрин оплаты, сначала нажмите кнопку '✅ Я оплатил' в меню нужного пакета.\n"
         "Для поддержки нажмите кнопку '🛠 Поддержка'."
     )
-
 
 # ================== Обработка текста (поддержка и reply команда) ==================
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -598,16 +634,18 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 ADMIN_ID,
                 f"📨 Сообщение поддержки от @{username} (ID: {user_id}):\n\n{text}",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("💬 Ответить пользователю", callback_data=f"replyto_{user_id}")
-                ]])
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💬 Ответить пользователю", callback_data=f"replyto_{user_id}")]])
             )
             await update.message.reply_text("✅ Ваше сообщение отправлено. Ожидайте ответ.")
         except Exception as e:
             logging.exception("Ошибка при отправке поддержки админу: %s", e)
             await update.message.reply_text("❌ Не удалось отправить сообщение в поддержку. Попробуйте позже.")
         # удаляем пометку поддержки
-        del pending_users[user_id]
+        try:
+            del pending_users[user_id]
+            save_states()
+        except KeyError:
+            pass
         return
 
     # ---------------- admin: отвечает после нажатия кнопки (stateful) ----------------
@@ -622,7 +660,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             await update.message.reply_text(f"❌ Не удалось отправить сообщение пользователю: {e}")
         # очищаем состояние
-        del admin_reply_state[user_id]
+        try:
+            del admin_reply_state[user_id]
+            save_states()
+        except KeyError:
+            pass
         return
 
     # ---------------- admin: ответ через reply (ответ на сообщении бота в чате админа) ----------------
@@ -667,25 +709,26 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Если вы хотите оплатить — нажмите /start и выберите пакет. Для поддержки нажмите кнопку '🛠 Поддержка'."
     )
 
-
 # ================== ЗАПУСК ==================
 def main():
+    # загружаем состояния (на случай, если до этого не загружено)
+    load_states()
     keep_alive()
+    if TOKEN.startswith("<") or ADMIN_ID == 0:
+        print("ERROR: Вставь TOKEN и ADMIN_ID в начало файла перед запуском.")
+        return
+
     app_bot = Application.builder().token(TOKEN).build()
 
     app_bot.add_handler(CommandHandler("start", start))
     app_bot.add_handler(CallbackQueryHandler(button))
     app_bot.add_handler(PreCheckoutQueryHandler(precheckout))
-    app_bot.add_handler(
-        MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment))
+    app_bot.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment))
     app_bot.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    app_bot.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    # reply команда также обрабатывается в handle_text (как в оригинале)
+    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
     print("Бот запущен!")
     app_bot.run_polling()
-
 
 if __name__ == "__main__":
     main()
