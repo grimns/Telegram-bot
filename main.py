@@ -28,8 +28,11 @@ DONATION_LINK = "https://www.donationalerts.com/r/gromn"
 
 IMAGE_URL = "https://ibb.co/hxbvxM4L"
 
-pending_users = {}  # {user_id: pack_type}
-admin_reply_state = {}  # {admin_id: user_id_to_reply}
+# pending_users: {user_id: { 'state': 'awaiting_screenshot'|'support', 'pack': '<pack>', 'category': 'vip'|'dick'|'normal' }}
+pending_users = {}
+# admin_reply_state: {admin_id: user_id_to_reply}
+admin_reply_state = {}
+
 
 # ================== FLASK keep-alive ==================
 app = Flask('')
@@ -126,6 +129,17 @@ def dick_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 
+# ================== HELPERS ==================
+def _category_from_pack(pack: str) -> str:
+    """Определяем категорию по названию пакета."""
+    p = (pack or "").lower()
+    if "vip" in p:
+        return "vip"
+    if "dick" in p:
+        return "dick"
+    return "normal"
+
+
 # ================== СТАРТ ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_photo(
@@ -148,15 +162,15 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "back":
         await query.message.reply_photo(
             photo=IMAGE_URL,
-            caption=
-            (f"📢 Наш основной канал: {MAIN_CHANNEL}\n\nВыберите способ оплаты:"
-             ),
+            caption=(
+                f"📢 Наш основной канал: {MAIN_CHANNEL}\n\nВыберите способ оплаты:"
+            ),
             reply_markup=main_keyboard())
         return
 
     # ===== Поддержка (пометка) =====
     if data == "support":
-        pending_users[user_id] = "support"
+        pending_users[user_id] = {"state": "support"}
         await query.message.reply_text(
             "🛠 Напишите своё сообщение поддержки. Мы перешлём его модератору.")
         return
@@ -164,8 +178,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ===== Админ отвечает через кнопку "Ответить пользователю" (устанавливаем state) =====
     if data.startswith("replyto_"):
         if user_id != ADMIN_ID:
-            await query.answer("❌ У вас нет прав администратора.",
-                               show_alert=True)
+            await query.answer("❌ У вас нет прав администратора.", show_alert=True)
             return
         try:
             target = int(data.split("_", 1)[1])
@@ -173,9 +186,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer("❌ Неверный идентификатор.", show_alert=True)
             return
         admin_reply_state[user_id] = target
-        await query.message.reply_text(
-            f"✍️ Отправь сообщение — оно будет переслано пользователю {target}."
-        )
+        await query.message.reply_text(f"✍️ Отправь сообщение — оно будет переслано пользователю {target}.")
         return
 
     # ===== Оплата звёздами (обычная) =====
@@ -419,34 +430,33 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ===== Универсальная логика: пользователь нажал "✅ Я оплатил" =====
-    # ЭТА ЧАСТЬ ХРАНИТ pack (например: "dick_usdt_trc", "pay_usdt_trc", "vip_usdt_trc", "pay_dick_usdt_trc", "vip", "dick" и т.д.)
     if data.startswith("paid_"):
         pack = data.replace("paid_", "")
-        pending_users[user_id] = pack
-        # Сообщаем пользователю
+        category = _category_from_pack(pack)
+        # state: awaiting_screenshot — ждём скрин от пользователя
+        pending_users[user_id] = {"state": "awaiting_screenshot", "pack": pack, "category": category}
+
         await query.message.reply_text(
-            "✅ Скиньте скрин оплаты, модератор проверит и скинет вам ссылку.")
-        # Сообщаем админу, что пользователь отметил оплату (и даём кнопку выдать ссылку сразу)
+            "✅ Нажато: 'Я оплатил'. Пожалуйста, отправьте скрин оплаты — модератор проверит и выдаст ссылку.")
+        # уведомляем админа
         try:
             await context.bot.send_message(
                 ADMIN_ID,
-                f"Пользователь @{user.username or user_id} (ID: {user_id}) отметил оплату: {pack}.\n"
-                "Отправьте скрин сюда или нажмите кнопку, чтобы выдать ссылку:",
+                f"Пользователь @{user.username or user_id} (ID: {user_id}) отметил оплату: {pack}.",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton(
-                        f"Выдать ссылку {user.username or user_id}",
+                        f"Выдать ссылку @{user.username or user_id}",
                         callback_data=f"give_{user_id}")
-                ]]))
+                ]])
+            )
         except Exception as e:
-            logging.exception(
-                "Не удалось уведомить админа о пометке оплаты: %s", e)
+            logging.exception("Не удалось уведомить админа о пометке оплаты: %s", e)
         return
 
     # ===== Админ выдал ссылку кнопкой =====
     if data.startswith("give_"):
         if user_id != ADMIN_ID:
-            await query.answer("❌ У вас нет прав администратора.",
-                               show_alert=True)
+            await query.answer("❌ У вас нет прав администратора.", show_alert=True)
             return
         try:
             target_id = int(data.split("_", 1)[1])
@@ -454,19 +464,24 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer("❌ Неверный идентификатор.", show_alert=True)
             return
         if target_id in pending_users:
-            method = pending_users[target_id]
+            info = pending_users[target_id]
+            category = info.get("category", "normal")
             # определяем куда слать ссылку
-            if "vip" in method:
+            if category == "vip":
                 link = VIP_CHANNEL_LINK
-            elif "dick" in method:
+            elif category == "dick":
                 link = DICK_CHANNEL_LINK
             else:
                 link = CHANNEL_LINK
-            await context.bot.send_message(
-                target_id,
-                f"✅ Оплата подтверждена! Вот ссылка на канал:\n{link}")
-            await query.answer(f"Ссылка отправлена пользователю {target_id}")
-            del pending_users[target_id]
+            try:
+                await context.bot.send_message(
+                    target_id,
+                    f"✅ Оплата подтверждена! Вот ссылка на канал:\n{link}")
+                await query.answer(f"Ссылка отправлена пользователю {target_id}")
+                del pending_users[target_id]
+            except Exception as e:
+                logging.exception("Не удалось отправить ссылку пользователю: %s", e)
+                await query.answer("❌ Не удалось отправить ссылку пользователю.", show_alert=True)
         else:
             await query.answer(
                 "Пользователь не найден в списке ожидающих оплат.",
@@ -513,41 +528,61 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
     username = user.username or "без_username"
 
-    # если пользователь нажал "Я оплатил" ранее — ожидаем скрин
-    if user_id in pending_users and pending_users[user_id] != "support":
-        pack = pending_users[user_id]
-        # Пересылаем админу фото + кнопка для выдачи ссылки
-        keyboard = [[
-            InlineKeyboardButton(f"Выдать ссылку @{user.username or user_id}",
-                                 callback_data=f"give_{user_id}")
-        ]]
-        await context.bot.send_photo(
-            ADMIN_ID,
-            photo=update.message.photo[-1].file_id,
-            caption=
-            f"📸 Скрин оплаты от @{username} (ID: {user_id})\nПакет: {pack}",
-            reply_markup=InlineKeyboardMarkup(keyboard))
-        await update.message.reply_text(
-            "📨 Скрин отправлен модератору, ожидайте проверки.")
-    elif user_id in pending_users and pending_users[user_id] == "support":
-        # пользователь писал в поддержку фото — пересылаем админу, добавляем кнопку "Ответить"
-        await context.bot.send_photo(
-            ADMIN_ID,
-            photo=update.message.photo[-1].file_id,
-            caption=
-            f"📸 Сообщение/скрин поддержки от @{username} (ID: {user_id})",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("💬 Ответить пользователю",
-                                     callback_data=f"replyto_{user_id}")
-            ]]))
-        await update.message.reply_text(
-            "📨 Ваше фото/сообщение отправлено в поддержку.")
-        del pending_users[user_id]
-    else:
-        # пользователь прислал фото без пометки оплаты
-        await update.message.reply_text(
-            "❗ Чтобы отправить скрин оплаты, сначала нажмите кнопку '✅ Я оплатил' в меню нужного пакета."
-        )
+    if user_id in pending_users:
+        state = pending_users[user_id].get("state")
+        if state == "awaiting_screenshot":
+            info = pending_users[user_id]
+            pack = info.get("pack", "unknown")
+            category = info.get("category", "normal")
+            if category == "vip":
+                caption_type = "👑 VIP приватка"
+            elif category == "dick":
+                caption_type = "🍆 Dick приватка"
+            else:
+                caption_type = "💫 Обычный доступ"
+
+            keyboard = [[
+                InlineKeyboardButton(f"Выдать ссылку @{username}", callback_data=f"give_{user_id}")
+            ]]
+            try:
+                await context.bot.send_photo(
+                    ADMIN_ID,
+                    photo=update.message.photo[-1].file_id,
+                    caption=f"📸 Скрин оплаты от @{username} (ID: {user_id})\nПакет: {pack} | {caption_type}",
+                    reply_markup=InlineKeyboardMarkup(keyboard))
+                await update.message.reply_text(
+                    "📨 Скрин отправлен модератору, ожидайте проверки.")
+            except Exception as e:
+                logging.exception("Ошибка при пересылке скрина админу: %s", e)
+                await update.message.reply_text("❌ Не удалось отправить скрин. Попробуйте позже.")
+            # не удаляем pending_users — ждем, пока админ вручную выдаст ссылку
+            return
+        elif state == "support":
+            # пересылаем фото как сообщение в поддержку
+            try:
+                await context.bot.send_photo(
+                    ADMIN_ID,
+                    photo=update.message.photo[-1].file_id,
+                    caption=(
+                        f"📸 Сообщение/скрин поддержки от @{username} (ID: {user_id})"),
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("💬 Ответить пользователю", callback_data=f"replyto_{user_id}")
+                    ]])
+                )
+                await update.message.reply_text(
+                    "📨 Ваше фото/сообщение отправлено в поддержку.")
+            except Exception as e:
+                logging.exception("Ошибка при отправке поддержки админу: %s", e)
+                await update.message.reply_text("❌ Не удалось отправить сообщение в поддержку. Попробуйте позже.")
+            # удаляем состояние поддержки
+            del pending_users[user_id]
+            return
+
+    # пользователь прислал фото без пометки оплаты/поддержки
+    await update.message.reply_text(
+        "❗ Чтобы отправить скрин оплаты, сначала нажмите кнопку '✅ Я оплатил' в меню нужного пакета.\n" 
+        "Для поддержки нажмите кнопку '🛠 Поддержка'."
+    )
 
 
 # ================== Обработка текста (поддержка и reply команда) ==================
@@ -558,23 +593,19 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = user.username or "без_username"
 
     # ---------------- user -> support: пересылаем админу с кнопкой ----------------
-    if user_id in pending_users and pending_users[user_id] == "support":
-        # отправляем админу сообщение + кнопка ответить
+    if user_id in pending_users and pending_users[user_id].get("state") == "support":
         try:
             await context.bot.send_message(
                 ADMIN_ID,
                 f"📨 Сообщение поддержки от @{username} (ID: {user_id}):\n\n{text}",
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("💬 Ответить пользователю",
-                                         callback_data=f"replyto_{user_id}")
-                ]]))
-            await update.message.reply_text(
-                "✅ Ваше сообщение отправлено. Ожидайте ответ.")
+                    InlineKeyboardButton("💬 Ответить пользователю", callback_data=f"replyto_{user_id}")
+                ]])
+            )
+            await update.message.reply_text("✅ Ваше сообщение отправлено. Ожидайте ответ.")
         except Exception as e:
             logging.exception("Ошибка при отправке поддержки админу: %s", e)
-            await update.message.reply_text(
-                "❌ Не удалось отправить сообщение в поддержку. Попробуйте позже."
-            )
+            await update.message.reply_text("❌ Не удалось отправить сообщение в поддержку. Попробуйте позже.")
         # удаляем пометку поддержки
         del pending_users[user_id]
         return
@@ -583,16 +614,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id == ADMIN_ID and user_id in admin_reply_state:
         target_id = admin_reply_state[user_id]
         if not text.strip():
-            await update.message.reply_text(
-                "❗ Напишите текст, чтобы отправить ответ пользователю.")
+            await update.message.reply_text("❗ Напишите текст, чтобы отправить ответ пользователю.")
             return
         try:
             await context.bot.send_message(target_id, f"💬 Поддержка: {text}")
-            await update.message.reply_text(
-                f"✅ Ответ отправлен пользователю {target_id}")
+            await update.message.reply_text(f"✅ Ответ отправлен пользователю {target_id}")
         except Exception as e:
-            await update.message.reply_text(
-                f"❌ Не удалось отправить сообщение пользователю: {e}")
+            await update.message.reply_text(f"❌ Не удалось отправить сообщение пользователю: {e}")
         # очищаем состояние
         del admin_reply_state[user_id]
         return
@@ -607,16 +635,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 target = int(m.group(1))
                 if not text.strip():
-                    await update.message.reply_text(
-                        "❗ Напишите текст, чтобы отправить ответ пользователю."
-                    )
+                    await update.message.reply_text("❗ Напишите текст, чтобы отправить ответ пользователю.")
                     return
                 await context.bot.send_message(target, f"💬 Поддержка: {text}")
-                await update.message.reply_text(
-                    f"✅ Ответ отправлен пользователю {target}")
+                await update.message.reply_text(f"✅ Ответ отправлен пользователю {target}")
             except Exception as e:
-                await update.message.reply_text(
-                    f"❌ Не удалось отправить сообщение пользователю: {e}")
+                await update.message.reply_text(f"❌ Не удалось отправить сообщение пользователю: {e}")
             return
 
     # ---------------- admin: старый вариант /reply_<id> ----------------
@@ -628,19 +652,14 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 target_id = int(cmd.replace("/reply_", ""))
                 try:
-                    await context.bot.send_message(
-                        target_id, f"💬 Поддержка: {reply_text}")
-                    await update.message.reply_text(
-                        f"✅ Ответ отправлен пользователю {target_id}")
+                    await context.bot.send_message(target_id, f"💬 Поддержка: {reply_text}")
+                    await update.message.reply_text(f"✅ Ответ отправлен пользователю {target_id}")
                 except Exception as e:
-                    await update.message.reply_text(
-                        f"❌ Не удалось отправить сообщение пользователю: {e}")
+                    await update.message.reply_text(f"❌ Не удалось отправить сообщение пользователю: {e}")
             except ValueError:
-                await update.message.reply_text(
-                    "❌ Неверный формат ID. Используйте /reply_<id> текст")
+                await update.message.reply_text("❌ Неверный формат ID. Используйте /reply_<id> текст")
         else:
-            await update.message.reply_text(
-                "❌ Используйте формат: /reply_<id> текст")
+            await update.message.reply_text("❌ Используйте формат: /reply_<id> текст")
         return
 
     # если обычный текст и не поддержка — подсказка
