@@ -305,8 +305,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "vip_usdt_erc":
         keyboard = [[
-            InlineKeyboardButton("✅ Я оплатил",
-                                .callback_data="paid_vip_usdt_erc")
+            InlineKeyboardButton("✅ Я оплатил", callback_data="paid_vip_usdt_erc")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
             f"💵 VIP Оплата USDT ERC20\nСумма: 10$\nАдрес: `{USDT_ERC20}`",
@@ -732,3 +731,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
