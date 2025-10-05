@@ -1,9 +1,5 @@
-pyTelegramBotAPI
 python-telegram-bot==20.7
-
-telegram
-flask
-
-
-nest-asyncio
+pyTelegramBotAPI
 aiogram
+flask
+nest-asyncio
