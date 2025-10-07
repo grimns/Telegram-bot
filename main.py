@@ -96,15 +96,15 @@ def main_keyboard():
             InlineKeyboardButton("💫 Оплата звёздами (200⭐)",
                                  callback_data="pay_stars_200")
         ],
-        [InlineKeyboardButton("💵 Оплата USDT 3$", callback_data="pay_usdt")],
-        [InlineKeyboardButton("💎 Оплата TON 3$", callback_data="pay_ton")],
+        [InlineKeyboardButton("💵 Оплата USDT 2$", callback_data="pay_usdt")],
+        [InlineKeyboardButton("💎 Оплата TON 2$", callback_data="pay_ton")],
         [
-            InlineKeyboardButton("🤖 Оплата через CryptoBot 3$",
+            InlineKeyboardButton("🤖 Оплата через CryptoBot 2$",
                                  callback_data="pay_cryptobot")
         ],
         [
             InlineKeyboardButton(
-                "🌍 Оплата для Украины, России, Казахстана и других 3$",
+                "🌍 Оплата для Украины, России, Казахстана и других 2$",
                 callback_data="pay_donation")
         ],
         [InlineKeyboardButton("👑 VIP-приватка", callback_data="vip_menu")],
@@ -126,15 +126,15 @@ def vip_keyboard():
             InlineKeyboardButton("⭐ VIP Stars 500⭐",
                                  callback_data="vip_pay_stars_500")
         ],
-        [InlineKeyboardButton("💵 USDT 10$", callback_data="vip_usdt")],
-        [InlineKeyboardButton("💎 TON 10$", callback_data="vip_ton")],
+        [InlineKeyboardButton("💵 USDT 5$", callback_data="vip_usdt")],
+        [InlineKeyboardButton("💎 TON 5$", callback_data="vip_ton")],
         [
-            InlineKeyboardButton("🤖 CryptoBot 10$",
+            InlineKeyboardButton("🤖 CryptoBot 5$",
                                  callback_data="vip_cryptobot")
         ],
         [
             InlineKeyboardButton(
-                "🌍 Оплата для Украины, России, Казахстана и других 10$",
+                "🌍 Оплата для Украины, России, Казахстана и других 5$",
                 callback_data="vip_donation")
         ],
         [InlineKeyboardButton("⬅️ Назад", callback_data="back")],
@@ -144,8 +144,8 @@ def vip_keyboard():
 def dick_keyboard():
     keyboard = [
         [
-            InlineKeyboardButton("⭐ Увеличение Stars 350⭐",
-                                 callback_data="dick_pay_stars_350")
+            InlineKeyboardButton("⭐ Увеличение Stars 250⭐",
+                                 callback_data="dick_pay_stars_250")
         ],
         [InlineKeyboardButton("💵 USDT 3$", callback_data="dick_usdt")],
         [InlineKeyboardButton("💎 TON 3$", callback_data="dick_ton")],
@@ -255,7 +255,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ], [InlineKeyboardButton("USDT ERC20", callback_data="pay_usdt_erc")],
                     [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            "💵 Выберите сеть для оплаты USDT (3$):",
+            "💵 Выберите сеть для оплаты USDT (2$):",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
@@ -265,7 +265,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  callback_data="paid_pay_usdt_trc")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"💵 Оплата USDT TRC20\nСумма: 3$\nАдрес: `{USDT_TRC20}`",
+            f"💵 Оплата USDT TRC20\nСумма: 2$\nАдрес: `{USDT_TRC20}`",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
@@ -276,7 +276,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  callback_data="paid_pay_usdt_erc")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"💵 Оплата USDT ERC20\nСумма: 3$\nАдрес: `{USDT_ERC20}`",
+            f"💵 Оплата USDT ERC20\nСумма: 2$\nАдрес: `{USDT_ERC20}`",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
@@ -288,7 +288,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ], [InlineKeyboardButton("USDT ERC20", callback_data="vip_usdt_erc")],
                     [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            "💵 Выберите сеть для VIP USDT (10$):",
+            "💵 Выберите сеть для VIP USDT (5$):",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
@@ -298,7 +298,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  callback_data="paid_vip_usdt_trc")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"💵 VIP Оплата USDT TRC20\nСумма: 10$\nАдрес: `{USDT_TRC20}`",
+            f"💵 VIP Оплата USDT TRC20\nСумма: 5$\nАдрес: `{USDT_TRC20}`",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
@@ -308,7 +308,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("✅ Я оплатил", callback_data="paid_vip_usdt_erc")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"💵 VIP Оплата USDT ERC20\nСумма: 10$\nАдрес: `{USDT_ERC20}`",
+            f"💵 VIP Оплата USDT ERC20\nСумма: 5$\nАдрес: `{USDT_ERC20}`",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
@@ -319,7 +319,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("✅ Я оплатил", callback_data=f"paid_pay_ton")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"💎 Оплата TON\nСумма: 3$\nАдрес: `{TON_ADDRESS}`",
+            f"💎 Оплата TON\nСумма: 2$\nАдрес: `{TON_ADDRESS}`",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
@@ -330,7 +330,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  callback_data=f"paid_pay_cryptobot")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"🤖 Оплата через CryptoBot\nПерейдите по ссылке:\n{CRYPTOBOT_LINK}\nСумма: 3$",
+            f"🤖 Оплата через CryptoBot\nПерейдите по ссылке:\n{CRYPTOBOT_LINK}\nСумма: 2$",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
@@ -340,7 +340,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  callback_data=f"paid_pay_donation")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"🌍 Оплата для Украины, России, Казахстана и других\nСумма: 3$\nСсылка: {DONATION_LINK}",
+            f"🌍 Оплата для Украины, России, Казахстана и других\nСумма: 2$\nСсылка: {DONATION_LINK}",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
@@ -356,7 +356,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("✅ Я оплатил", callback_data=f"paid_vip_ton")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"💎 Оплата TON\nСумма: 10$\nАдрес: `{TON_ADDRESS}`",
+            f"💎 Оплата TON\nСумма: 5$\nАдрес: `{TON_ADDRESS}`",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
@@ -367,7 +367,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  callback_data=f"paid_vip_cryptobot")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"🤖 Оплата через CryptoBot\nПерейдите по ссылке:\n{CRYPTOBOT_LINK}\nСумма: 10$",
+            f"🤖 Оплата через CryptoBot\nПерейдите по ссылке:\n{CRYPTOBOT_LINK}\nСумма: 5$",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
@@ -377,7 +377,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  callback_data=f"paid_vip_donation")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"🌍 Оплата для Украины, России, Казахстана и других\nСумма: 10$\nСсылка: {DONATION_LINK}",
+            f"🌍 Оплата для Украины, России, Казахстана и других\nСумма: 5$\nСсылка: {DONATION_LINK}",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
@@ -388,12 +388,12 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=dick_keyboard())
         return
 
-    if data == "dick_pay_stars_350":
-        prices = [LabeledPrice("Увеличение члена", 350)]
+    if data == "dick_pay_stars_250":
+        prices = [LabeledPrice("Увеличение члена", 250)]
         await query.message.reply_invoice(
             title="🍆 Увеличение члена",
             description="Оплата услуги увеличения члена",
-            payload="dick-350stars",
+            payload="dick-250stars",
             provider_token=STARS_PROVIDER_TOKEN,
             currency="XTR",
             prices=prices,
@@ -536,7 +536,7 @@ async def successful_payment(update: Update,
     payload = payment.invoice_payload
 
     # payload'ы соответствуют инвойсам выше
-    if payload in ["privat-200stars", "vip-500stars", "dick-350stars"]:
+    if payload in ["privat-200stars", "vip-500stars", "dick-250stars"]:
         if "vip" in payload:
             link = VIP_CHANNEL_LINK
         elif "dick" in payload:
@@ -731,4 +731,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
