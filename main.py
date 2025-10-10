@@ -21,7 +21,7 @@ STATES_FILE = "states.json"
 STARS_PROVIDER_TOKEN = "STARS"
 
 MAIN_CHANNEL = "https://t.me/osnvkanal"
-CHANNEL_LINK = "https://t.e m/osnvkanal"  # проверь эту ссылку, может опечатка
+CHANNEL_LINK = "https://t.me/+52SBJ_ZOFYg2YTky"  # проверь эту ссылку, может опечатка
 VIP_CHANNEL_LINK = "https://t.me/+RW9AYUQMIjo0NjEy"
 DICK_CHANNEL_LINK = "https://t.me/+--5nFyT4jjQyZDEy"
 
@@ -676,3 +676,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
