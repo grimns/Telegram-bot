@@ -1,4 +1,4 @@
-# mainp.py — исправленная версия с работающими меню стран и методами оплаты
+# mainp.py — исправленная и финальная версия
 import json
 import os
 import logging
@@ -38,6 +38,7 @@ DONATION_LINK = "https://www.donationalerts.com/r/gromn"   # DonateAlerts
 DONATELLO_LINK = "https://donatello.to/Gromn"             # Donatello
 FKWALLET_LINK = "https://fkwallet.io/registration?partner_code=FK3223"
 FKWALLET_NUMBER = "F7202565872412476"
+# --------------------------------------------------------------------
 
 IMAGE_URL = "https://ibb.co/hxbvxM4L"
 
@@ -132,7 +133,6 @@ def dick_keyboard():
 # Показываем сначала методы (как ты просил) — без цены. Кнопки ведут на show_method (вывод цены+ссылки)
 def country_methods_keyboard(prefix: str):
     # prefix: pay_donation | vip_donation | dick_donation
-    # For Ukraine methods: Donatello and DonateAlerts
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Donatello", callback_data=f"{prefix}_method_donatello")],
         [InlineKeyboardButton("DonateAlerts", callback_data=f"{prefix}_method_donationalerts")],
@@ -161,11 +161,15 @@ def _category_from_pack(pack: str) -> str:
 # ================== СТАРТ ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # send photo + keyboard
-    await update.message.reply_photo(
-        photo=IMAGE_URL,
-        caption=(f"📢 Наш основной канал: {MAIN_CHANNEL}\n\nВыберите способ оплаты:"),
-        reply_markup=main_keyboard()
-    )
+    try:
+        await update.message.reply_photo(
+            photo=IMAGE_URL,
+            caption=(f"📢 Наш основной канал: {MAIN_CHANNEL}\n\nВыберите способ оплаты:"),
+            reply_markup=main_keyboard()
+        )
+    except Exception:
+        # fallback to text only if photo fails
+        await update.message.reply_text(f"📢 Наш основной канал: {MAIN_CHANNEL}\n\nВыберите способ оплаты:", reply_markup=main_keyboard())
 
 # ================== ОБРАБОТКА КНОПОК ==================
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -179,21 +183,24 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data in ("back_main", "back"):
         # show main keyboard (edit current message if possible)
         try:
-            await query.edit_message_media(media=None)  # noop if not supported, safe try
+            # try to edit current message to main keyboard
+            await query.edit_message_text(f"📢 Наш основной канал: {MAIN_CHANNEL}\n\nВыберите способ оплаты:", reply_markup=main_keyboard())
         except Exception:
-            pass
-        await query.message.reply_photo(
-            photo=IMAGE_URL,
-            caption=(f"📢 Наш основной канал: {MAIN_CHANNEL}\n\nВыберите способ оплаты:"),
-            reply_markup=main_keyboard()
-        )
+            # fallback: send new message
+            try:
+                await query.message.reply_photo(photo=IMAGE_URL, caption=(f"📢 Наш основной канал: {MAIN_CHANNEL}\n\nВыберите способ оплаты:"), reply_markup=main_keyboard())
+            except Exception:
+                await query.message.reply_text(f"📢 Наш основной канал: {MAIN_CHANNEL}\n\nВыберите способ оплаты:", reply_markup=main_keyboard())
         return
 
     # ---------- Support ----------
     if data == "support":
         pending_users[user_id] = {"state": "support"}
         save_states()
-        await query.edit_message_text("🛠 Напишите своё сообщение поддержки — мы перешлём его модератору.")
+        try:
+            await query.edit_message_text("🛠 Напишите своё сообщение поддержки — мы перешлём его модератору.")
+        except Exception:
+            await query.message.reply_text("🛠 Напишите своё сообщение поддержки — мы перешлём его модератору.")
         return
 
     # ---------- Admin reply state ----------
@@ -214,37 +221,49 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ---------- Invoices (stars) ----------
     if data == "pay_stars_200":
         prices = [LabeledPrice("Доступ в приват", 200)]
-        await query.message.reply_invoice(
-            title="Вход в приват",
-            description="Оплата за доступ к приватному каналу",
-            payload="privat-200stars",
-            provider_token=STARS_PROVIDER_TOKEN,
-            currency="XTR",
-            prices=prices,
-            start_parameter="stars"
-        )
+        try:
+            await query.message.reply_invoice(
+                title="Вход в приват",
+                description="Оплата за доступ к приватному каналу",
+                payload="privat-200stars",
+                provider_token=STARS_PROVIDER_TOKEN,
+                currency="XTR",
+                prices=prices,
+                start_parameter="stars"
+            )
+        except Exception as e:
+            logger.exception("Ошибка при отправке инвойса: %s", e)
+            await query.message.reply_text("Не удалось инициировать оплату звёздами.")
         return
 
     if data == "vip_pay_stars_500":
         prices = [LabeledPrice("VIP-приват", 500)]
-        await query.message.reply_invoice(title="VIP-приватка",
-                                          description="Оплата за VIP-приватку",
-                                          payload="vip-500stars",
-                                          provider_token=STARS_PROVIDER_TOKEN,
-                                          currency="XTR",
-                                          prices=prices,
-                                          start_parameter="vipstars")
+        try:
+            await query.message.reply_invoice(title="VIP-приватка",
+                                              description="Оплата за VIP-приватку",
+                                              payload="vip-500stars",
+                                              provider_token=STARS_PROVIDER_TOKEN,
+                                              currency="XTR",
+                                              prices=prices,
+                                              start_parameter="vipstars")
+        except Exception as e:
+            logger.exception("Ошибка при отправке инвойса: %s", e)
+            await query.message.reply_text("Не удалось инициировать оплату звёздами.")
         return
 
     if data == "dick_pay_stars_250":
         prices = [LabeledPrice("Увеличение члена", 250)]
-        await query.message.reply_invoice(title="🍆 Увеличение члена",
-                                          description="Оплата услуги увеличения члена",
-                                          payload="dick-250stars",
-                                          provider_token=STARS_PROVIDER_TOKEN,
-                                          currency="XTR",
-                                          prices=prices,
-                                          start_parameter="dickstars")
+        try:
+            await query.message.reply_invoice(title="🍆 Увеличение члена",
+                                              description="Оплата услуги увеличения члена",
+                                              payload="dick-250stars",
+                                              provider_token=STARS_PROVIDER_TOKEN,
+                                              currency="XTR",
+                                              prices=prices,
+                                              start_parameter="dickstars")
+        except Exception as e:
+            logger.exception("Ошибка при отправке инвойса: %s", e)
+            await query.message.reply_text("Не удалось инициировать оплату звёздами.")
         return
 
     # ---------- USDT / TON / Crypto flows (kept, amounts updated) ----------
@@ -252,20 +271,20 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("USDT TRC20", callback_data="pay_usdt_trc")],
             [InlineKeyboardButton("USDT ERC20", callback_data="pay_usdt_erc")],
-            [InlineKeyboardButton("⬅️ Назад", callback_data="back")]
+            [InlineKeyboardButton("⬅️ Назад", callback_data="back_main")]
         ])
         await query.edit_message_text("💵 Выберите сеть для оплаты USDT (3$):", reply_markup=kb)
         return
 
     if data == "pay_usdt_trc":
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Я оплатил", callback_data="paid_pay_usdt_trc")],
-                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
+                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back_main")]])
         await query.edit_message_text(f"💵 Оплата USDT TRC20\nСумма: 3$\nАдрес: {USDT_TRC20}", reply_markup=kb)
         return
 
     if data == "pay_usdt_erc":
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Я оплатил", callback_data="paid_pay_usdt_erc")],
-                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
+                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back_main")]])
         await query.edit_message_text(f"💵 Оплата USDT ERC20\nСумма: 3$\nАдрес: {USDT_ERC20}", reply_markup=kb)
         return
 
@@ -273,160 +292,188 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("USDT TRC20", callback_data="vip_usdt_trc")],
             [InlineKeyboardButton("USDT ERC20", callback_data="vip_usdt_erc")],
-            [InlineKeyboardButton("⬅️ Назад", callback_data="back")]
+            [InlineKeyboardButton("⬅️ Назад", callback_data="vip_menu")]
         ])
         await query.edit_message_text("💵 Выберите сеть для VIP USDT (5$):", reply_markup=kb)
         return
 
     if data == "vip_usdt_trc":
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Я оплатил", callback_data="paid_vip_usdt_trc")],
-                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
+                                   [InlineKeyboardButton("⬅️ Назад", callback_data="vip_menu")]])
         await query.edit_message_text(f"💵 VIP Оплата USDT TRC20\nСумма: 5$\nАдрес: {USDT_TRC20}", reply_markup=kb)
         return
 
     if data == "vip_usdt_erc":
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Я оплатил", callback_data="paid_vip_usdt_erc")],
-                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
+                                   [InlineKeyboardButton("⬅️ Назад", callback_data="vip_menu")]])
         await query.edit_message_text(f"💵 VIP Оплата USDT ERC20\nСумма: 5$\nАдрес: {USDT_ERC20}", reply_markup=kb)
         return
 
     if data == "pay_ton":
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Я оплатил", callback_data="paid_pay_ton")],
-                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
+                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back_main")]])
         await query.edit_message_text(f"💎 Оплата TON\nСумма: 3$\nАдрес: {TON_ADDRESS}", reply_markup=kb)
         return
 
     if data == "vip_ton":
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Я оплатил", callback_data="paid_vip_ton")],
-                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
+                                   [InlineKeyboardButton("⬅️ Назад", callback_data="vip_menu")]])
         await query.edit_message_text(f"💎 Оплата TON\nСумма: 5$\nАдрес: {TON_ADDRESS}", reply_markup=kb)
         return
 
     if data == "pay_cryptobot":
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Я оплатил", callback_data="paid_pay_cryptobot")],
-                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("Перейти в CryptoBot", url=f"https://{CRYPTOBOT_LINK}" if not CRYPTOBOT_LINK.startswith("http") else CRYPTOBOT_LINK)],
+                                   [InlineKeyboardButton("✅ Я оплатил", callback_data="paid_pay_cryptobot")],
+                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back_main")]])
         await query.edit_message_text(f"🤖 Оплата через CryptoBot\nПерейдите по ссылке:\n{CRYPTOBOT_LINK}\nСумма: 3$", reply_markup=kb)
         return
 
     if data == "vip_cryptobot":
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Я оплатил", callback_data="paid_vip_cryptobot")],
-                                   [InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("Перейти в CryptoBot", url=f"https://{CRYPTOBOT_LINK}" if not CRYPTOBOT_LINK.startswith("http") else CRYPTOBOT_LINK)],
+                                   [InlineKeyboardButton("✅ Я оплатил", callback_data="paid_vip_cryptobot")],
+                                   [InlineKeyboardButton("⬅️ Назад", callback_data="vip_menu")]])
         await query.edit_message_text(f"🤖 Оплата через CryptoBot\nПерейдите по ссылке:\n{CRYPTOBOT_LINK}\nСумма: 5$", reply_markup=kb)
         return
 
     # ---------- Donation menus: show country methods first ----------
     # Normal
     if data == "pay_donation":
-        await query.edit_message_text("Выберите страну для оплаты:", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("Украина", callback_data="pay_donation_country_ukraine")],
             [InlineKeyboardButton("Россия", callback_data="pay_donation_country_russia")],
             [InlineKeyboardButton("Казахстан и другие", callback_data="pay_donation_country_kazakhstan")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="back_main")]
-        ]))
+        ])
+        await query.edit_message_text("Выберите страну для оплаты:", reply_markup=kb)
         return
 
     # VIP
     if data == "vip_donation":
-        await query.edit_message_text("Выберите страну для оплаты (VIP):", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("Украина", callback_data="vip_donation_country_ukraine")],
             [InlineKeyboardButton("Россия", callback_data="vip_donation_country_russia")],
             [InlineKeyboardButton("Казахстан и другие", callback_data="vip_donation_country_kazakhstan")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="vip_menu")]
-        ]))
+        ])
+        await query.edit_message_text("Выберите страну для оплаты (VIP):", reply_markup=kb)
         return
 
     # Dick
     if data == "dick_donation":
-        await query.edit_message_text("Выберите страну для оплаты (Увеличение):", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("Украина", callback_data="dick_donation_country_ukraine")],
             [InlineKeyboardButton("Россия", callback_data="dick_donation_country_russia")],
             [InlineKeyboardButton("Казахстан и другие", callback_data="dick_donation_country_kazakhstan")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="dick_menu")]
-        ]))
+        ])
+        await query.edit_message_text("Выберите страну для оплаты (Увеличение):", reply_markup=kb)
         return
 
     # ---------- Country selected -> show methods (Donatello / DonateAlerts / FK) ----------
     # Normal donation country buttons
     if data == "pay_donation_country_ukraine":
-        await query.edit_message_text("🇺🇦 Украина — выберите способ оплаты:", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("Donatello", callback_data="pay_donation_method_donatello")],
             [InlineKeyboardButton("DonateAlerts", callback_data="pay_donation_method_donationalerts")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="pay_donation")]
-        ]))
+        ])
+        await query.edit_message_text("🇺🇦 Украина — выберите способ оплаты:", reply_markup=kb)
         return
 
     if data == "pay_donation_country_russia":
-        await query.edit_message_text("🇷🇺 Россия — выберите способ оплаты:", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("DonateAlerts", callback_data="pay_donation_method_donationalerts")],
             [InlineKeyboardButton("FK Wallet", callback_data="pay_donation_method_fkwallet")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="pay_donation")]
-        ]))
+        ])
+        await query.edit_message_text("🇷🇺 Россия — выберите способ оплаты:", reply_markup=kb)
         return
 
     if data == "pay_donation_country_kazakhstan":
-        await query.edit_message_text("🇰🇿 Казахстан — выберите способ оплаты:", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("DonateAlerts", callback_data="pay_donation_method_donationalerts")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="pay_donation")]
-        ]))
+        ])
+        await query.edit_message_text("🇰🇿 Казахстан — выберите способ оплаты:", reply_markup=kb)
         return
 
     # VIP donation country buttons
     if data == "vip_donation_country_ukraine":
-        await query.edit_message_text("🇺🇦 (VIP) Украина — выберите способ оплаты:", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("Donatello", callback_data="vip_donation_method_donatello")],
             [InlineKeyboardButton("DonateAlerts", callback_data="vip_donation_method_donationalerts")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="vip_donation")]
-        ]))
+        ])
+        await query.edit_message_text("🇺🇦 (VIP) Украина — выберите способ оплаты:", reply_markup=kb)
         return
 
     if data == "vip_donation_country_russia":
-        await query.edit_message_text("🇷🇺 (VIP) Россия — выберите способ оплаты:", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("DonateAlerts", callback_data="vip_donation_method_donationalerts")],
             [InlineKeyboardButton("FK Wallet", callback_data="vip_donation_method_fkwallet")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="vip_donation")]
-        ]))
+        ])
+        await query.edit_message_text("🇷🇺 (VIP) Россия — выберите способ оплаты:", reply_markup=kb)
         return
 
     if data == "vip_donation_country_kazakhstan":
-        await query.edit_message_text("🇰🇿 (VIP) Казахстан — выберите способ оплаты:", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("DonateAlerts", callback_data="vip_donation_method_donationalerts")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="vip_donation")]
-        ]))
+        ])
+        await query.edit_message_text("🇰🇿 (VIP) Казахстан — выберите способ оплаты:", reply_markup=kb)
         return
 
     # Dick donation country buttons
     if data == "dick_donation_country_ukraine":
-        await query.edit_message_text("🇺🇦 (Увел.) Украина — выберите способ оплаты:", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("Donatello", callback_data="dick_donation_method_donatello")],
             [InlineKeyboardButton("DonateAlerts", callback_data="dick_donation_method_donationalerts")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="dick_donation")]
-        ]))
+        ])
+        await query.edit_message_text("🇺🇦 (Увел.) Украина — выберите способ оплаты:", reply_markup=kb)
         return
 
     if data == "dick_donation_country_russia":
-        await query.edit_message_text("🇷🇺 (Увел.) Россия — выберите способ оплаты:", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("DonateAlerts", callback_data="dick_donation_method_donationalerts")],
             [InlineKeyboardButton("FK Wallet", callback_data="dick_donation_method_fkwallet")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="dick_donation")]
-        ]))
+        ])
+        await query.edit_message_text("🇷🇺 (Увел.) Россия — выберите способ оплаты:", reply_markup=kb)
         return
 
     if data == "dick_donation_country_kazakhstan":
-        await query.edit_message_text("🇰🇿 (Увел.) Казахстан — выберите способ оплаты:", reply_markup=InlineKeyboardMarkup([
+        kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("DonateAlerts", callback_data="dick_donation_method_donationalerts")],
             [InlineKeyboardButton("⬅️ Назад", callback_data="dick_donation")]
-        ]))
+        ])
+        await query.edit_message_text("🇰🇿 (Увел.) Казахстан — выберите способ оплаты:", reply_markup=kb)
         return
 
     # ---------- Method selected -> show price + link + "I paid" ----------
-    # We'll map method callback to a view with price and link depending on prefix (pay/vip/dick) and country
-    # Examples: pay_donation_method_donationalerts, vip_donation_method_donatello, etc.
-    m = re.match(r"(?P<prefix>pay_donation|vip_donation|dick_donation)_method_(?P<method>\w+)", data)
+    # Unified mapping: prefix could be pay_donation, vip_donation, dick_donation
+    m = re.match(r"(?P<prefix>pay_donation|vip_donation|dick_donation|pay_donation_method|vip_donation_method|dick_donation_method)_(?P<method>.+)", data)
     if m:
-        prefix = m.group("prefix")
-        method = m.group("method")  # donationalerts / donatello / fkwallet
-        # Determine displayed price text based on which country submenu we came from.
-        # We try to infer country from the last message text (safe default to 3$).
+        # Some callback formats are like pay_donation_method_donationalerts (the earlier code used that)
+        # But we also handle variants; normalize:
+        # We'll parse using split if regex not precise
+        full = data
+        # Determine prefix and method nicely:
+        # try to find pattern ..._method_<method> first
+        if "_method_" in full:
+            parts = full.split("_method_")
+            prefix = parts[0]
+            method = parts[1]
+        else:
+            # fallback split by first underscore after prefix
+            # Examples: pay_donation_donationalerts
+            parts = full.split("_")
+            prefix = "_".join(parts[:2]) if len(parts) >= 2 else parts[0]
+            method = parts[-1]
+
+        # Determine price text by trying to infer country context in previous message or prefix.
+        # We'll set default 3$ and region-specific labels if prefix contains vip/dick or if message text had country names.
         text_lower = (query.message.text or "").lower()
         if "украин" in text_lower or "укр" in text_lower:
             price_text = "124 ₴ / 3 $"
@@ -439,24 +486,36 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # choose URL for method
         url = None
-        if method == "donatello":
+        if "donatello" in method:
             url = DONATELLO_LINK
-        elif method == "donationalerts":
+            method_read = "Donatello"
+        elif "donationalerts" in method or "donatealerts" in method:
             url = DONATION_LINK
-        elif method == "fkwallet":
+            method_read = "DonateAlerts"
+        elif "fkwallet" in method or "fk" in method:
             url = FKWALLET_LINK
+            method_read = "FK Wallet"
+        else:
+            # unknown -> fallback to donatealerts
+            url = DONATION_LINK
+            method_read = method
 
         # back_to should return to the country list for same prefix
-        back_to = prefix  # e.g. pay_donation, vip_donation, dick_donation
-        # Compose readable header
-        if prefix.startswith("pay"):
+        # map prefix to back target
+        if prefix.startswith("pay_donation"):
+            back_to = "pay_donation"
             title = "Оплата"
-        elif prefix.startswith("vip"):
+        elif prefix.startswith("vip_donation"):
+            back_to = "vip_donation"
             title = "VIP Оплата"
-        else:
+        elif prefix.startswith("dick_donation"):
+            back_to = "dick_donation"
             title = "Оплата (Увеличение)"
+        else:
+            back_to = "pay_donation"
+            title = "Оплата"
 
-        view_text = f"💳 {title}\n\nСпособ: {method.capitalize()}\n💸 К оплате: {price_text}\n\nНажмите «Перейти к оплате» для перехода или «✅ Я оплатил», чтобы отправить скрин."
+        view_text = f"💳 {title}\n\nСпособ: {method_read}\n💸 К оплате: {price_text}\n\nНажмите «Перейти к оплате» для перехода или «✅ Я оплатил», чтобы отправить скрин."
         await query.edit_message_text(view_text, reply_markup=payment_view_buttons(prefix, method, url, back_to))
         return
 
@@ -488,7 +547,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data == "dick_cryptobot":
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Я оплатил", callback_data="paid_dick_cryptobot")],
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("Перейти в CryptoBot", url=f"https://{CRYPTOBOT_LINK}" if not CRYPTOBOT_LINK.startswith("http") else CRYPTOBOT_LINK)],
+                                   [InlineKeyboardButton("✅ Я оплатил", callback_data="paid_dick_cryptobot")],
                                    [InlineKeyboardButton("⬅️ Назад", callback_data="dick_menu")]])
         await query.edit_message_text(f"🤖 Оплата через CryptoBot\nПерейдите по ссылке:\n{CRYPTOBOT_LINK}\nСумма: 3$", reply_markup=kb)
         return
@@ -502,10 +562,15 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pending_users[user_id] = {"state": "awaiting_screenshot", "pack": pack, "category": category}
         save_states()
 
-        # Ask user to send a screenshot of internal game thing
-        await query.edit_message_text(
-            "✅ Отметка: 'Я оплатил'.\nОтправьте скрин/чек оплаты модератор проверит и выдаст доступ в течении двух часов"
-        )
+        # Ask user to send a screenshot of payment
+        try:
+            await query.edit_message_text(
+                "✅ Отметка: 'Я оплатил'.\nОтправьте скрин/чек оплаты сюда — модератор проверит и выдаст доступ."
+            )
+        except Exception:
+            await query.message.reply_text(
+                "✅ Отметка: 'Я оплатил'.\nОтправьте скрин/чек оплаты сюда — модератор проверит и выдаст доступ."
+            )
 
         # notify admin that user pressed "I paid" (admin will wait for screenshot)
         try:
@@ -540,8 +605,17 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 await context.bot.send_message(target_id, f"✅ Подтверждено! Вот ваша ссылка:\n{link}")
                 await query.answer(f"Ссылка отправлена пользователю {target_id}")
-                del pending_users[target_id]
+                # remove pending
+                try:
+                    del pending_users[target_id]
+                except KeyError:
+                    pass
                 save_states()
+                # remove "Выдать ссылку" button under admin message
+                try:
+                    await query.edit_message_reply_markup(reply_markup=None)
+                except Exception:
+                    pass
             except Exception as e:
                 logger.exception("Не удалось отправить ссылку пользователю: %s", e)
                 await query.answer("❌ Не удалось отправить ссылку пользователю.", show_alert=True)
@@ -593,13 +667,14 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             caption_type = "💫 Обычный доступ"
 
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(f"Выдать ссылку @{username}", callback_data=f"give_{user_id}")]])
+        caption = f"📸 Скрин от @{username} (ID: {user_id})\nПакет: {pack} | {caption_type}"
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(f"✅ Выдать ссылку", callback_data=f"give_{user_id}")]])
         try:
             # пересылаем фото админу (файл_id) с подписью и кнопкой
             await context.bot.send_photo(
                 ADMIN_ID,
                 photo=update.message.photo[-1].file_id,
-                caption=f"📸 Скрин от @{username} (ID: {user_id})\nПакет: {pack} | {caption_type}",
+                caption=caption,
                 reply_markup=keyboard
             )
             await update.message.reply_text("📨 Скрин отправлен модератору. Ожидайте подтверждения.")
