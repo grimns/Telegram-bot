@@ -2,11 +2,12 @@ import json
 import os
 import logging
 import re
+import asyncio
 from threading import Thread
 from flask import Flask
 from telegram import (
     InlineKeyboardButton, InlineKeyboardMarkup,
-    Update, LabeledPrice, InputFile
+    Update, LabeledPrice, InputFile, Bot
 )
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
@@ -92,7 +93,8 @@ def main_keyboard():
         [InlineKeyboardButton("🛠 Поддержка", callback_data="support")]
     ])
 
-def back_keyboard(): return InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
+def back_keyboard(): 
+    return InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
 
 def duration_keyboard(prefix):
     return InlineKeyboardMarkup([
@@ -159,7 +161,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "support":
         pending_users[user_id] = {"state": "support"}; save_states()
-        await query.message.reply_text("🛠 Напишите сообщение или пришлите скрин оплаты/чека, модератор ответит вам."); return
+        await query.message.reply_text("🛠 Напишите сообщение или пришлите чек, модератор ответит."); return
 
     m = re.match(r"^(private|vip)_(month|year|forever)$", data)
     if m:
@@ -184,15 +186,15 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(
             f"💳 Оплата через FK Wallet\n\n"
             f"1️⃣ Перейдите по ссылке: {FKWALLET_LINK}\n"
-            f"2️⃣ Войдите в кабинет → кошелёк → рубли → вывод\n"
+            f"2️⃣ Войдите → кошелёк → рубли → вывод\n"
             f"3️⃣ Вставьте этот номер: `{FKWALLET_NUMBER}`\n"
-            f"4️⃣ Укажите сумму в рублях.\n\nПосле оплаты нажмите «Я оплатил».",
+            f"4️⃣ Укажите сумму.\n\nПосле оплаты нажмите «Я оплатил».",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Я оплатил", callback_data="paid")]])
         ); return
 
     if data == "paid":
         pending_users[user_id] = {"state": "awaiting_screenshot"}; save_states()
-        await query.message.reply_text("📸 Скиньте скрин оплаты/чека. Модератор проверит и выдаст ссылку в течение 2 часов."); return
+        await query.message.reply_text("📸 Скиньте чек. Модератор проверит и выдаст ссылку в течение 2 часов."); return
 
     if "_stars" in data:
         base, dur = re.match(r"^(private|vip)_(month|year|forever)_stars$", data).groups()
@@ -224,20 +226,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in pending_users:
         state = pending_users[user_id]["state"]
         if state == "awaiting_screenshot":
-            await context.bot.send_message(ADMIN_ID, f"📩 Скрин от {update.message.from_user.username or user_id}")
+            await context.bot.send_message(ADMIN_ID, f"📩 Скрин от {user_id}")
             if update.message.photo:
                 await update.message.photo[-1].get_file().download_to_drive("user_screenshot.jpg")
                 await context.bot.send_photo(ADMIN_ID, photo=InputFile("user_screenshot.jpg"),
-                                             caption=f"🧾 Проверить и выдать ссылку пользователю {user_id}",
+                                             caption=f"🧾 Проверить оплату пользователя {user_id}",
                                              reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Выдать ссылку", callback_data=f"give_{user_id}")]]))
-            else:
-                await context.bot.send_message(ADMIN_ID, f"❗ Пользователь {user_id} отправил не фото.")
-            await update.message.reply_text("✅ Скрин отправлен модератору. Проверка займёт до 2 часов.")
+            await update.message.reply_text("✅ Отправлено модератору. Проверка до 2 часов.")
             del pending_users[user_id]; save_states(); return
 
         if state == "support":
             await context.bot.send_message(ADMIN_ID, f"🛠 Сообщение от {user_id}: {update.message.text}")
-            await update.message.reply_text("📩 Сообщение отправлено модератору."); return
+            await update.message.reply_text("📩 Отправлено модератору."); return
 
 # ---------------- ВЫДАТЬ ССЫЛКУ ----------------
 async def admin_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -251,6 +251,10 @@ async def admin_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- MAIN ----------------
 def main():
     keep_alive()
+
+    # 🔧 Удаляем webhook перед запуском polling (исправляет ошибку Conflict)
+    asyncio.run(Bot(TOKEN).delete_webhook(drop_pending_updates=True))
+
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -259,6 +263,7 @@ def main():
     app.add_handler(PreCheckoutQueryHandler(precheckout))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment))
     app.add_handler(MessageHandler(filters.ALL, handle_message))
+
     app.run_polling()
 
 if __name__ == "__main__":
