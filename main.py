@@ -94,15 +94,15 @@ def main_keyboard():
             InlineKeyboardButton("💫 Оплата звёздами (200⭐)",
                                  callback_data="pay_stars_200")
         ],
-        [InlineKeyboardButton("💵 Оплата USDT 2$", callback_data="pay_usdt")],
-        [InlineKeyboardButton("💎 Оплата TON 2$", callback_data="pay_ton")],
+        [InlineKeyboardButton("💵 Оплата USDT 3$", callback_data="pay_usdt")],
+        [InlineKeyboardButton("💎 Оплата TON 3$", callback_data="pay_ton")],
         [
-            InlineKeyboardButton("🤖 Оплата через CryptoBot 2$",
+            InlineKeyboardButton("🤖 Оплата через CryptoBot 3$",
                                  callback_data="pay_cryptobot")
         ],
         [
             InlineKeyboardButton(
-                "🌍 Оплата для Украины, России, Казахстана и других 2$",
+                "🌍 Оплата для Украины, России, Казахстана и других 3$",
                 callback_data="pay_donation")
         ],
         [InlineKeyboardButton("👑 VIP-приватка", callback_data="vip_menu")],
@@ -253,7 +253,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ], [InlineKeyboardButton("USDT ERC20", callback_data="pay_usdt_erc")],
                     [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            "💵 Выберите сеть для оплаты USDT (2$):",
+            "💵 Выберите сеть для оплаты USDT (3$):",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
@@ -263,7 +263,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  callback_data="paid_pay_usdt_trc")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"💵 Оплата USDT TRC20\nСумма: 2$\nАдрес: `{USDT_TRC20}`",
+            f"💵 Оплата USDT TRC20\nСумма: 3$\nАдрес: `{USDT_TRC20}`",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
@@ -274,7 +274,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  callback_data="paid_pay_usdt_erc")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"💵 Оплата USDT ERC20\nСумма: 2$\nАдрес: `{USDT_ERC20}`",
+            f"💵 Оплата USDT ERC20\nСумма: 3$\nАдрес: `{USDT_ERC20}`",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
@@ -317,7 +317,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("✅ Я оплатил", callback_data=f"paid_pay_ton")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"💎 Оплата TON\nСумма: 2$\nАдрес: `{TON_ADDRESS}`",
+            f"💎 Оплата TON\nСумма: 3$\nАдрес: `{TON_ADDRESS}`",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
@@ -328,7 +328,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  callback_data=f"paid_pay_cryptobot")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"🤖 Оплата через CryptoBot\nПерейдите по ссылке:\n{CRYPTOBOT_LINK}\nСумма: 2$",
+            f"🤖 Оплата через CryptoBot\nПерейдите по ссылке:\n{CRYPTOBOT_LINK}\nСумма: 3$",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
@@ -338,7 +338,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  callback_data=f"paid_pay_donation")
         ], [InlineKeyboardButton("⬅️ Назад", callback_data="back")]]
         await query.message.reply_text(
-            f"🌍 Оплата для Украины, России, Казахстана и других\nСумма: 2$\nСсылка: {DONATION_LINK}",
+            f"🌍 Оплата для Украины, России, Казахстана и других\nСумма: 3$\nСсылка: {DONATION_LINK}",
             reply_markup=InlineKeyboardMarkup(keyboard))
         return
 
@@ -729,3 +729,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
