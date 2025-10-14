@@ -411,7 +411,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  "2) В кабинете: Кошелёк → Рубли → Вывод\n"
                  f"3) Вставьте номер: `{FKWALLET_NUMBER}`\n"
                  "4) Укажите сумму и подтвердите вывод.\n\n"
-                 "После перевода нажмите кнопку '✅ Я оплатил' и пришлите скрин игры/чека.")
+                 "После перевода нажмите кнопку '✅ Я оплатил' и пришлите скрин оплаты/чека.")
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("Перейти в FK Wallet", url=FKWALLET_LINK)],[InlineKeyboardButton("✅ Я оплатил", callback_data=f"paid_{prefix_pack}_ru_fkwallet")],[InlineKeyboardButton("⬅️ Назад", callback_data="back")]])
         await query.message.reply_text(instr, parse_mode="Markdown", reply_markup=kb)
         return
@@ -535,7 +535,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_photo(
                     ADMIN_ID,
                     photo=update.message.photo[-1].file_id,
-                    caption=f"📸 Скрин игры от @{username} (ID: {user_id})\n{caption_type}\n\nID: {user_id}",
+                    caption=f"📸 Скрин оплаты от @{username} (ID: {user_id})\n{caption_type}\n\nID: {user_id}",
                     reply_markup=InlineKeyboardMarkup(keyboard))
                 await update.message.reply_text("📨 Скрин отправлен модератору, ожидайте проверки (до 2 часов).")
             except Exception as e:
@@ -674,3 +674,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
