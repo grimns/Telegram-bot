@@ -56,8 +56,8 @@ STARS_PRICES = {
 }
 
 USD_PRICES = {
-    "private": {"month": 3, "year": 5, "forever": 10},
-    "vip": {"month": 5, "year": 10, "forever": 15},
+    "private": {"month": 2, "year": 4, "forever": 7},
+    "vip": {"month": 4, "year": 6, "forever": 9},
 }
 
 # ---------------- In-memory states ----------------
@@ -674,4 +674,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
